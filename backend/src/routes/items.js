@@ -19,11 +19,21 @@ async function writeData(data) {
 router.get('/', async (req, res, next) => {
   try {
     const data = await readData();
-    const { page = 1, limit = 10, q } = req.query;
+    const { page = 1, limit = 10, q, sortKey, sortOrder = 'asc' } = req.query;
     let results = data;
 
     if (q) {
       results = results.filter(item => item.name.toLowerCase().includes(q.toLowerCase()));
+    }
+
+    if (sortKey) {
+      results.sort((a, b) => {
+        const aValue = a[sortKey];
+        const bValue = b[sortKey];
+        if (aValue < bValue) return sortOrder === 'asc' ? -1 : 1;
+        if (aValue > bValue) return sortOrder === 'asc' ? 1 : -1;
+        return 0;
+      });
     }
 
     const paginatedResults = results.slice((page - 1) * limit, page * limit);

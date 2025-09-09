@@ -2,6 +2,7 @@ import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { useData } from '../state/DataContext';
 import { Link } from 'react-router-dom';
 import { FixedSizeList } from 'react-window';
+import AutoSizer from 'react-virtualized-auto-sizer';
 
 function Items() {
   const { items, loading, pagination, fetchItems } = useData();
@@ -32,9 +33,10 @@ function Items() {
 
   // Load items helper (keeps abort on unmount)
   const loadItems = useCallback(
-    (page, q) => {
+    (page, q, sort = 'name-asc') => {
       const controller = new AbortController();
-      fetchItems({ page, q, signal: controller.signal });
+      const [sortKey, sortOrder] = sort.split('-');
+      fetchItems({ page, q, sortKey, sortOrder, signal: controller.signal });
       return () => controller.abort();
     },
     [fetchItems]
@@ -42,25 +44,10 @@ function Items() {
 
   // Initial + search-triggered fetch
   useEffect(() => {
-    return loadItems(1, debouncedTerm);
-  }, [loadItems, debouncedTerm]);
+    return loadItems(1, debouncedTerm, sortKey);
+  }, [loadItems, debouncedTerm, sortKey]);
 
-  // Sorting for current page items
-  const sortedItems = useMemo(() => {
-    const list = items.slice();
-    switch (sortKey) {
-      case 'name-asc':
-        return list.sort((a, b) => a.name.localeCompare(b.name));
-      case 'name-desc':
-        return list.sort((a, b) => b.name.localeCompare(a.name));
-      case 'price-asc':
-        return list.sort((a, b) => (a.price ?? 0) - (b.price ?? 0));
-      case 'price-desc':
-        return list.sort((a, b) => (b.price ?? 0) - (a.price ?? 0));
-      default:
-        return list;
-    }
-  }, [items, sortKey]);
+  const sortedItems = items;
 
   // Selection
   const toggleSelect = useCallback((id) => {
@@ -81,16 +68,10 @@ function Items() {
 
     return (
       <div
-        style={{
-          ...style,
-          boxSizing: 'border-box', // prevents padding from causing horizontal overflow
-          display: 'flex',
-          alignItems: 'center',
-          gap: 10,
-          padding: '0 10px',
-          background: isSelected ? '#f0f6ff' : 'transparent',
-          borderBottom: '1px solid #eee',
-        }}
+        style={style}
+        className={`box-border flex items-center gap-2.5 px-2.5 border-b ${
+          isSelected ? 'bg-blue-50' : ''
+        } border-gray-200`}
         role="row"
         aria-selected={isSelected}
       >
@@ -100,22 +81,26 @@ function Items() {
             checked={isSelected}
             onChange={() => data.toggleSelect(item.id)}
             aria-label={'Select ' + item.name}
+            className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
           />
         )}
 
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, minWidth: 0 }}>
-            <Link to={'/items/' + item.id} style={{ textDecoration: 'none', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+        <div className="flex-1 min-w-0">
+          <div className="flex justify-between gap-2 min-w-0">
+            <Link
+              to={'/items/' + item.id}
+              className="text-blue-600 hover:underline"
+            >
               {item.name}
             </Link>
             {data.currency && (
-              <span style={{ color: '#444', whiteSpace: 'nowrap' }}>
-              {data.currency.format(item.price ?? 0)}
-            </span>
+              <span className="text-gray-600 whitespace-nowrap">
+                {data.currency.format(item.price ?? 0)}
+              </span>
             )}
           </div>
           {!data.compact && (
-            <div style={{ fontSize: 12, color: '#666', marginTop: 2 }}>
+            <div className="text-xs text-gray-500 mt-0.5">
               {item.category || 'Uncategorized'}
             </div>
           )}
@@ -138,20 +123,13 @@ function Items() {
   };
 
   return (
-    <div style={{ display: 'grid', gap: 12 }}>
-      <h2 style={{ margin: 0 }}>Items</h2>
+    <div className="grid gap-4">
+      <h1 className="text-2xl font-bold">Items</h1>
 
       {/* Controls */}
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: '1fr auto auto auto',
-          gap: 10,
-          alignItems: 'center',
-        }}
-      >
-        <div style={{ display: 'flex', gap: 8 }}>
-          <label htmlFor="search" className="visually-hidden">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-center">
+        <div className="flex gap-2">
+          <label htmlFor="search" className="sr-only">
             Search items
           </label>
           <input
@@ -161,16 +139,17 @@ function Items() {
             value={searchTerm}
             onChange={handleSearch}
             aria-label="Search items"
+            className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
           />
           {searchTerm && (
-            <button onClick={clearSearch} aria-label="Clear search">
+            <button onClick={clearSearch} aria-label="Clear search" className="px-3 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500">
               Clear
             </button>
           )}
         </div>
 
-        <div>
-          <label htmlFor="sort" style={{ marginRight: 6 }}>
+        <div className="flex items-center gap-2">
+          <label htmlFor="sort" className="text-sm font-medium text-gray-700">
             Sort:
           </label>
           <select
@@ -178,6 +157,7 @@ function Items() {
             value={sortKey}
             onChange={(e) => setSortKey(e.target.value)}
             aria-label="Sort items"
+            className="block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md"
           >
             <option value="name-asc">Name (A → Z)</option>
             <option value="name-desc">Name (Z → A)</option>
@@ -186,113 +166,57 @@ function Items() {
           </select>
         </div>
 
-        <div>
-          <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+        <div className="flex items-center">
+          <label className="inline-flex items-center gap-2">
             <input
               type="checkbox"
               checked={compact}
               onChange={(e) => setCompact(e.target.checked)}
+              className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
             />
-            Compact view
+            <span className="text-sm font-medium text-gray-700">Compact view</span>
           </label>
         </div>
 
         <div>
-          <button onClick={refresh} disabled={loading} aria-busy={loading}>
+          <button onClick={refresh} disabled={loading} aria-busy={loading} className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50">
             Refresh
           </button>
         </div>
       </div>
 
       {/* Status bar */}
-      <div
-        style={{
-          display: 'flex',
-          flexWrap: 'wrap',
-          gap: 12,
-          alignItems: 'center',
-          color: '#555',
-        }}
-        aria-live="polite"
-      >
+      <div className="flex flex-wrap gap-4 items-center text-gray-600" aria-live="polite">
         <span>
           Page {pagination.page || 1} of {pagination.totalPages || 1}
         </span>
         <span>Showing {items.length} items</span>
         {selected.size > 0 && (
           <>
-            <strong>{selected.size} selected</strong>
-            <button onClick={clearSelection}>Clear selection</button>
+            <strong className="font-semibold">{selected.size} selected</strong>
+            <button onClick={clearSelection} className="text-sm font-medium text-indigo-600 hover:text-indigo-500">Clear selection</button>
           </>
         )}
       </div>
 
       {/* List */}
       {loading && (
-        <div>
-          <p>Loading…</p>
-          <div
-            style={{
-              border: '1px solid #eee',
-              borderRadius: 6,
-              overflow: 'hidden',
-              maxWidth: 640,
-            }}
-          >
-            {Array.from({ length: 8 }).map((_, i) => (
-              <div
-                key={i}
-                style={{
-                  height: itemSize,
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 10,
-                  padding: '0 10px',
-                  borderBottom: '1px solid #f3f3f3',
-                }}
-              >
-                <div
-                  style={{
-                    width: 16,
-                    height: 16,
-                    background: '#eee',
-                    borderRadius: 2,
-                  }}
-                />
-                <div
-                  style={{
-                    height: 10,
-                    background: '#eee',
-                    borderRadius: 4,
-                    flex: 1,
-                  }}
-                />
-                <div
-                  style={{
-                    width: 80,
-                    height: 10,
-                    background: '#eee',
-                    borderRadius: 4,
-                  }}
-                />
-              </div>
-            ))}
-          </div>
+        <div className="border border-gray-200 rounded-lg overflow-hidden max-w-2xl">
+          {Array.from({ length: 8 }).map((_, i) => (
+            <div key={i} className="flex items-center gap-4 p-2.5 border-b border-gray-100" style={{ height: itemSize }}>
+              <div className="w-4 h-4 bg-gray-200 rounded-sm" />
+              <div className="h-2.5 bg-gray-200 rounded-full flex-1" />
+              <div className="h-2.5 bg-gray-200 rounded-full w-20" />
+            </div>
+          ))}
         </div>
       )}
 
       {!loading && items.length === 0 && (
-        <div
-          style={{
-            border: '1px solid #eee',
-            borderRadius: 6,
-            padding: 16,
-            background: '#fafafa',
-          }}
-        >
-          <p style={{ margin: 0, marginBottom: 8 }}>No items found.</p>
+        <div className="border border-gray-200 rounded-lg p-4 bg-gray-50 text-center">
+          <p className="mb-2">No items found.</p>
           {debouncedTerm && (
-            <button onClick={clearSearch} aria-label="Clear search to show all items">
+            <button onClick={clearSearch} aria-label="Clear search to show all items" className="text-sm font-medium text-indigo-600 hover:text-indigo-500">
               Clear search
             </button>
           )}
@@ -300,46 +224,45 @@ function Items() {
       )}
 
       {!loading && items.length > 0 && (
-        <div style={{ border: '1px solid #eee', borderRadius: 6, overflow: 'hidden', maxWidth: 540 }}>
-          <FixedSizeList
-            height={440}
-            itemCount={sortedItems.length}
-            itemSize={itemSize}
-            width={540}
-            itemData={{ items: sortedItems, selected, toggleSelect, compact, currency }}
-          >
-            {Row}
-          </FixedSizeList>
+        <div className="border border-gray-200 rounded-lg overflow-hidden" style={{ height: 440 }}>
+          <AutoSizer>
+            {({ height, width }) => (
+              <FixedSizeList
+                height={height}
+                itemCount={sortedItems.length}
+                itemSize={itemSize}
+                width={width}
+                itemData={{ items: sortedItems, selected, toggleSelect, compact, currency }}
+              >
+                {Row}
+              </FixedSizeList>
+            )}
+          </AutoSizer>
         </div>
       )}
 
       {/* Pagination controls */}
-      <div
-        style={{
-          display: 'flex',
-          gap: 10,
-          alignItems: 'center',
-          flexWrap: 'wrap',
-        }}
-      >
+      <div className="flex gap-2 items-center flex-wrap">
         <button
-          onClick={() => loadItems((pagination.page || 1) - 1, debouncedTerm)}
+          onClick={() => loadItems((pagination.page || 1) - 1, debouncedTerm, sortKey)}
           disabled={(pagination.page || 1) <= 1 || loading}
+          className="px-3 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50"
         >
           Previous
         </button>
-        <span>
+        <span className="text-sm text-gray-700">
           Page {pagination.page || 1} of {pagination.totalPages || 1}
         </span>
         <button
-          onClick={() => loadItems((pagination.page || 1) + 1, debouncedTerm)}
+          onClick={() => loadItems((pagination.page || 1) + 1, debouncedTerm, sortKey)}
           disabled={(pagination.page || 1) >= (pagination.totalPages || 1) || loading}
+          className="px-3 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50"
         >
           Next
         </button>
 
-        <form onSubmit={goToPage} style={{ display: 'inline-flex', gap: 6, alignItems: 'center' }}>
-          <label htmlFor="jumpPage">Go to page:</label>
+        <form onSubmit={goToPage} className="inline-flex gap-2 items-center ml-auto">
+          <label htmlFor="jumpPage" className="text-sm font-medium text-gray-700">Go to page:</label>
           <input
             id="jumpPage"
             type="number"
@@ -348,9 +271,9 @@ function Items() {
             inputMode="numeric"
             value={pageInput}
             onChange={(e) => setPageInput(e.target.value)}
-            style={{ width: 80 }}
+            className="w-20 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
           />
-          <button type="submit" disabled={loading}>Go</button>
+          <button type="submit" disabled={loading} className="px-3 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50">Go</button>
         </form>
       </div>
     </div>
