@@ -41,6 +41,17 @@ To handle large lists efficiently, I integrated `react-window`. The item list is
 
 I added a loading indicator that is displayed while items are being fetched. I also added a message that is shown when no items are found, improving the user experience.
 
+### 5. Testing
+
+I added basic tests for App.js for handling:
+-   ✓ renders the app and fetches items
+-   ✓ searches for items
+-   ✓ sorts items
+-   ✓ paginates through items
+-   ✓ selects and deselects items
+-   ✓ toggles compact view
+-   ✓ navigates to item detail page
+
 ## Trade-offs
 
 -   **In-Memory Cache**: The caching solution for `/api/stats` is simple and effective for a single-server instance. In a distributed environment, a more robust solution like Redis or Memcached would be necessary to ensure cache consistency across multiple instances.

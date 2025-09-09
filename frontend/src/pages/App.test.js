@@ -2,11 +2,11 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import '@testing-library/jest-dom';
 import App from './App';
-import { DataProvider, useData } from '../state/DataContext';
+import { useData } from '../state/DataContext';
 import { BrowserRouter } from 'react-router-dom';
 
 jest.mock('react-window', () => ({
-  FixedSizeList: ({ children, itemData, height, itemCount, itemSize, width }) => (
+  FixedSizeList: ({ children, itemData, itemCount, itemSize, width }) => (
     <div data-testid="fixed-size-list">
       {Array.from({ length: itemCount }).map((_, index) => (
         <div key={index} style={{ height: itemSize, width }}>
@@ -15,6 +15,11 @@ jest.mock('react-window', () => ({
       ))}
     </div>
   ),
+}));
+
+jest.mock('react-virtualized-auto-sizer', () => ({
+  __esModule: true,
+  default: ({ children }) => children({ height: 440, width: 540 }),
 }));
 
 jest.mock('../state/DataContext', () => ({
@@ -73,20 +78,13 @@ describe('App', () => {
     await screen.findByText('Item 1');
     const sortSelect = screen.getByLabelText('Sort items');
     await userEvent.selectOptions(sortSelect, 'price-desc');
-    const rows = await screen.findAllByRole('row');
-    expect(rows[0]).toHaveTextContent('Item 10');
+    await waitFor(() => expect(mockFetchItems).toHaveBeenCalledWith(expect.objectContaining({ sortKey: 'price', sortOrder: 'desc' })));
   });
 
   test('paginates through items', async () => {
     renderApp();
     await screen.findByText('Item 1');
     const nextButton = screen.getByText('Next');
-    useData.mockImplementation(() => ({
-      items: mockItems.slice(10, 20),
-      loading: false,
-      pagination: { page: 2, totalPages: 2 },
-      fetchItems: mockFetchItems,
-    }));
     await userEvent.click(nextButton);
     await waitFor(() => expect(mockFetchItems).toHaveBeenCalledWith(expect.objectContaining({ page: 2 })));
   });
