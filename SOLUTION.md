@@ -17,15 +17,15 @@ For the `GET /api/stats` I implemented in-memory caching. The stats are calculat
 
 I added a new test file `src/routes/items.test.js` using Jest and Supertest. The tests cover:
 -   **GET /api/items**:
-  ✓ should return a paginated list of items
-  ✓ should filter items by a search query
+  -  ✓ should return a paginated list of items
+  -  ✓ should filter items by a search query
 -   **GET /api/items/:id**:
-  ✓ should return a single item
-  ✓ should return 404 for a non-existent item
+  -  ✓ should return a single item
+  -  ✓ should return 404 for a non-existent item
 -   **POST /api/items**:
-  ✓ should create a new item
-  ✓ should return 400 if name is missing
-  ✓ should return 400 if price is missing
+  -  ✓ should create a new item
+  -  ✓ should return 400 if name is missing
+  -  ✓ should return 400 if price is missing
 
 I also refactored the main `index.js` to export the `app` and `server` instances to allow for better testing and graceful shutdown. 
 Additionally, I fixed a major security vulnerability in the `errorHandler.js` middleware, replacing it with a standard Express error handler.
